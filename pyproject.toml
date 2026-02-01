@@ -2,7 +2,6 @@
 name = "tg-anime-bot"
 version = "0.1.0"
 description = "A Telegram bot for searching and watching anime episodes"
-readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "python-telegram-bot>=20.0",

@@ -4,15 +4,13 @@ FROM python:3.10-slim
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies and uv
+# Install system dependencies and uv in a single layer
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     curl \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/* \
-    && curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Add uv to PATH
-ENV PATH="/root/.cargo/bin:$PATH"
+    && pip install uv
 
 # Copy dependency files
 COPY pyproject.toml uv.lock ./

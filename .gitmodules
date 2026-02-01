@@ -1,0 +1,3 @@
+[submodule "anipy-cli"]
+	path = anipy-cli
+	url = https://github.com/sdaqo/anipy-cli.git
