@@ -63,6 +63,7 @@ def main():
     """Start the bot."""
     # Get token from environment
     token = os.getenv("TELEGRAM_BOT_TOKEN") or config.BOT_TOKEN
+    base_url = os.getenv("TELEGRAM_BASE_URL") or config.TELEGRAM_BASE_URL
 
     if not token:
         logger.error("TELEGRAM_BOT_TOKEN environment variable not set!")
@@ -70,7 +71,11 @@ def main():
         return
 
     # Create application
-    application = Application.builder().token(token).build()
+    # application = Application.builder().token(token).build()
+    application = Application.builder() \
+        .token(token) \
+        .base_url(base_url) \
+        .build()
 
     # Add handlers
     application.add_handler(CommandHandler("start", start_command))

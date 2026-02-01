@@ -1,21 +1,25 @@
-version: "3.8"
+version: '3.8'
+
 services:
   telegram-bot-api:
-    build: .
-    container_name: telegram-local-api
+    image: aiogram/telegram-bot-api:latest
+    container_name: telegram-bot-api
     restart: unless-stopped
-    environment:
-      TELEGRAM_API_ID: ${TELEGRAM_API_ID}
-      TELEGRAM_API_HASH: ${TELEGRAM_API_HASH}
+    env_file: .env
     ports:
-      - "8081:8081"
+      - "8081:8081"  # HTTP API
+      - "8082:8082"  # Stats (если включен TELEGRAM_STAT)
+
     volumes:
-      - tgdata:/var/lib/telegram-bot-api
-    command:
-      - --api-id=${TELEGRAM_API_ID}
-      - --api-hash=${TELEGRAM_API_HASH}
-      - --http-port=8081
-      - --dir=/var/lib/telegram-bot-api
+      # Сохранение данных между перезапусками
+      - ./telegram-bot-api-data:/var/lib/telegram-bot-api
+    
+    # Ограничение ресурсов (опционально)
+    # deploy:
+    #   resources:
+    #     limits:
+    #       memory: 2G
+    #       cpus: '1.0'
 
 volumes:
-  tgdata:
+  telegram-bot-api-data:

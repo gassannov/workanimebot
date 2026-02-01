@@ -155,3 +155,6 @@ This project is open source and available under the MIT License.
 
 - Inspired by [ani-cli](https://github.com/pystardust/ani-cli)
 - Uses the AllAnime API for anime data and streaming sources
+
+
+curl http://localhost:8081/bot8468796408:AAEN8efd4GDwyGSfZowGWGxRlGX-XRL6IqM/getMe
