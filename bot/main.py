@@ -9,8 +9,8 @@ from dotenv import load_dotenv
 from telegram.ext import Application, CommandHandler
 
 from .config import config
-from .handlers.errors import error_handler
 from .handlers.search import get_conversation_handler
+from .strings import COMMANDS
 
 # Load environment variables
 load_dotenv()
@@ -26,14 +26,7 @@ logger = logging.getLogger(__name__)
 async def start_command(update, context):
     """Handle /start command."""
     await update.message.reply_text(
-        "🎌 *Welcome to Anime Bot!*\n\n"
-        "I can help you find and watch anime episodes.\n\n"
-        "*Commands:*\n"
-        "• `/search <query>` - Search for anime\n"
-        "• `/search` - Start interactive search\n"
-        "• `/help` - Show help message\n\n"
-        "*Example:*\n"
-        "`/search One Piece`",
+        COMMANDS["start_welcome"],
         parse_mode="Markdown",
     )
 
@@ -41,20 +34,7 @@ async def start_command(update, context):
 async def help_command(update, context):
     """Handle /help command."""
     await update.message.reply_text(
-        "🎌 *Anime Bot Help*\n\n"
-        "*How to use:*\n"
-        "1. Use `/search <anime name>` to find anime\n"
-        "2. Select an anime from the results\n"
-        "3. Choose an episode\n"
-        "4. Video will be sent to you!\n\n"
-        "*Features:*\n"
-        "• Sub/Dub toggle\n"
-        "• Multiple video quality options\n"
-        "• Direct video in chat\n\n"
-        "*Tips:*\n"
-        "• Use the pagination buttons for long lists\n"
-        "• Switch between sub/dub with the toggle button\n"
-        "• If video fails, you'll get a direct URL",
+        COMMANDS["help_message"],
         parse_mode="Markdown",
     )
 
@@ -66,16 +46,13 @@ def main():
     base_url = os.getenv("TELEGRAM_BASE_URL") or config.TELEGRAM_BASE_URL
 
     if not token:
-        logger.error("TELEGRAM_BOT_TOKEN environment variable not set!")
-        print("Error: Please set TELEGRAM_BOT_TOKEN in .env file or environment")
+        logger.error(COMMANDS["token_not_set_error"])
+        print(COMMANDS["token_not_set_message"])
         return
 
     # Create application
     # application = Application.builder().token(token).build()
-    application = Application.builder() \
-        .token(token) \
-        .base_url(base_url) \
-        .build()
+    application = Application.builder().token(token).base_url(base_url).build()
 
     # Add handlers
     application.add_handler(CommandHandler("start", start_command))
@@ -86,8 +63,8 @@ def main():
     # application.add_error_handler(error_handler)
 
     # Start polling
-    logger.info("Starting bot...")
-    print("Bot is running! Press Ctrl+C to stop.")
+    logger.info(COMMANDS["bot_starting"])
+    print(COMMANDS["bot_running"])
     application.run_polling(allowed_updates=["message", "callback_query"])
 
 

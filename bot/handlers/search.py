@@ -15,6 +15,7 @@ from telegram.ext import (
 )
 
 from ..api import api_client, downloader
+from ..strings import EPISODES, ERRORS, QUALITY, SEARCH, TRANSLATION, VIDEO
 from ..utils.keyboard import (
     ANIME_PREFIX,
     BACK_PREFIX,
@@ -50,7 +51,7 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     # Otherwise, ask for query
     await update.message.reply_text(
-        "🔍 *Search Anime*\n\n" "Please enter the anime name you want to search for:",
+        SEARCH["prompt"],
         parse_mode="Markdown",
     )
     return ConversationState.WAITING_SEARCH_QUERY
@@ -63,7 +64,7 @@ async def receive_search_query(
     query = update.message.text.strip()
 
     if not query:
-        await update.message.reply_text("Please enter a valid search query.")
+        await update.message.reply_text(SEARCH["invalid_query"])
         return ConversationState.WAITING_SEARCH_QUERY
 
     return await perform_search(update, context, query)
@@ -78,7 +79,7 @@ async def perform_search(
 
     # Show searching message
     message = await update.effective_message.reply_text(
-        f"🔍 Searching for: *{query}*...",
+        SEARCH["searching"].format(query=query),
         parse_mode="Markdown",
     )
 
@@ -88,8 +89,7 @@ async def perform_search(
 
         if not results:
             await message.edit_text(
-                f"❌ No results found for: *{query}*\n\n"
-                "Try a different search term.",
+                SEARCH["no_results"].format(query=query),
                 parse_mode="Markdown",
             )
             return ConversationHandler.END
@@ -107,8 +107,7 @@ async def perform_search(
         )
 
         await message.edit_text(
-            f"🎬 *Search Results for:* {query}\n"
-            f"Found {len(results)} anime(s). Select one:",
+            SEARCH["results_found"].format(query=query, count=len(results)),
             reply_markup=keyboard,
             parse_mode="Markdown",
         )
@@ -117,7 +116,7 @@ async def perform_search(
 
     except Exception as e:
         logger.error(f"Search error: {e}")
-        await message.edit_text(f"❌ Error during search: {str(e)}")
+        await message.edit_text(SEARCH["search_error"].format(error=str(e)))
         return ConversationHandler.END
 
 
@@ -167,22 +166,23 @@ async def select_anime_callback(
                 translation_type=session.translation_type,
             )
 
-            mode_text = "DUB" if session.translation_type == "dub" else "SUB"
+            mode_text = TRANSLATION[session.translation_type]
             await query.edit_message_text(
-                f"🎬 *Search Results for:* {session.search_query} ({mode_text})\n"
-                f"Found {len(results)} anime(s). Select one:",
+                SEARCH["results_found_with_mode"].format(
+                    query=session.search_query, mode=mode_text, count=len(results)
+                ),
                 reply_markup=keyboard,
                 parse_mode="Markdown",
             )
         except Exception as e:
-            await query.edit_message_text(f"❌ Error: {e}")
+            await query.edit_message_text(ERRORS["generic_error"].format(error=e))
             return ConversationHandler.END
 
         return ConversationState.SELECTING_ANIME
 
     # Handle cancel
     if data == f"{BACK_PREFIX}cancel":
-        await query.edit_message_text("Search cancelled.")
+        await query.edit_message_text(SEARCH["cancelled"])
         sessions.clear(user_id)
         return ConversationHandler.END
 
@@ -193,7 +193,7 @@ async def select_anime_callback(
         # Find selected anime
         selected = next((a for a in session.search_results if a.id == anime_id), None)
         if not selected:
-            await query.edit_message_text("❌ Anime not found. Please search again.")
+            await query.edit_message_text(EPISODES["anime_not_found"])
             return ConversationHandler.END
 
         session.selected_anime_id = anime_id
@@ -201,7 +201,7 @@ async def select_anime_callback(
 
         # Fetch episodes
         await query.edit_message_text(
-            f"📺 Loading episodes for *{selected.name}*...",
+            EPISODES["loading"].format(name=selected.name),
             parse_mode="Markdown",
         )
 
@@ -210,7 +210,9 @@ async def select_anime_callback(
 
             if not episodes:
                 await query.edit_message_text(
-                    f"❌ No {session.translation_type.upper()} episodes available for *{selected.name}*",
+                    EPISODES["no_episodes"].format(
+                        mode=TRANSLATION[session.translation_type], name=selected.name
+                    ),
                     parse_mode="Markdown",
                 )
                 return ConversationHandler.END
@@ -221,10 +223,11 @@ async def select_anime_callback(
             keyboard = build_episode_list_keyboard(episodes, page=0)
 
             await query.edit_message_text(
-                f"📺 *{selected.name}*\n"
-                f"Type: {session.translation_type.upper()}\n"
-                f"Episodes: {len(episodes)}\n\n"
-                "Select an episode:",
+                EPISODES["list_header"].format(
+                    name=selected.name,
+                    mode=TRANSLATION[session.translation_type],
+                    count=len(episodes),
+                ),
                 reply_markup=keyboard,
                 parse_mode="Markdown",
             )
@@ -233,7 +236,7 @@ async def select_anime_callback(
 
         except Exception as e:
             logger.error(f"Episodes fetch error: {e}")
-            await query.edit_message_text(f"❌ Error loading episodes: {str(e)}")
+            await query.edit_message_text(EPISODES["fetch_error"].format(error=str(e)))
             return ConversationHandler.END
 
     return ConversationState.SELECTING_ANIME
@@ -271,8 +274,9 @@ async def select_episode_callback(
             translation_type=session.translation_type,
         )
         await query.edit_message_text(
-            f"🎬 *Search Results for:* {session.search_query}\n"
-            f"Found {len(session.search_results)} anime(s). Select one:",
+            SEARCH["results_found"].format(
+                query=session.search_query, count=len(session.search_results)
+            ),
             reply_markup=keyboard,
             parse_mode="Markdown",
         )
@@ -284,7 +288,9 @@ async def select_episode_callback(
         session.selected_episode = episode
 
         await query.edit_message_text(
-            f"⏳ Loading Episode {episode} of *{session.selected_anime_name}*...",
+            EPISODES["loading_episode"].format(
+                episode=episode, name=session.selected_anime_name
+            ),
             parse_mode="Markdown",
         )
 
@@ -298,8 +304,7 @@ async def select_episode_callback(
 
             if not video_streams:
                 await query.edit_message_text(
-                    f"❌ No video streams found for Episode {episode}.\n"
-                    "The sources may be temporarily unavailable.",
+                    EPISODES["no_streams"].format(episode=episode),
                     parse_mode="Markdown",
                 )
                 keyboard = build_episode_list_keyboard(
@@ -318,8 +323,9 @@ async def select_episode_callback(
             keyboard = build_quality_keyboard(video_streams)
 
             await query.edit_message_text(
-                f"🎬 *{session.selected_anime_name}* - Episode {episode}\n\n"
-                "Select video quality:",
+                QUALITY["select"].format(
+                    name=session.selected_anime_name, episode=episode
+                ),
                 reply_markup=keyboard,
                 parse_mode="Markdown",
             )
@@ -328,7 +334,9 @@ async def select_episode_callback(
 
         except Exception as e:
             logger.error(f"Episode loading error: {e}")
-            await query.edit_message_text(f"❌ Error loading episode: {str(e)}")
+            await query.edit_message_text(
+                EPISODES["loading_error"].format(error=str(e))
+            )
             return ConversationState.SELECTING_EPISODE
 
     return ConversationState.SELECTING_EPISODE
@@ -351,10 +359,11 @@ async def select_quality_callback(
             session.episodes, page=session.episode_page
         )
         await query.edit_message_text(
-            f"📺 *{session.selected_anime_name}*\n"
-            f"Type: {session.translation_type.upper()}\n"
-            f"Episodes: {len(session.episodes)}\n\n"
-            "Select an episode:",
+            EPISODES["list_header"].format(
+                name=session.selected_anime_name,
+                mode=TRANSLATION[session.translation_type],
+                count=len(session.episodes),
+            ),
             reply_markup=keyboard,
             parse_mode="Markdown",
         )
@@ -381,27 +390,29 @@ async def send_video(query, session, stream) -> int:
     """Send the video to user via Telegram."""
     # Edit message to show loading
     await query.edit_message_text(
-        f"📤 Sending *{session.selected_anime_name}* - Episode {session.selected_episode}...\n"
-        f"Quality: {stream.resolution}\n\n"
-        "Please wait, this may take a moment...",
+        VIDEO["sending"].format(
+            name=session.selected_anime_name,
+            episode=session.selected_episode,
+            quality=stream.resolution,
+        ),
         parse_mode="Markdown",
     )
 
     try:
         # Try to send video by URL (Telegram fetches it)
         # This works for larger files than the 50MB upload limit
+
         from telegram import InputFile
-        import os
+
         file_path = await downloader.download_video(stream)
 
-        with open(file_path, 'rb') as video_file:
+        with open(file_path, "rb") as video_file:
             await query.message.reply_video(
-                video=InputFile(video_file, filename="video.mp4"),#stream.url,
-                caption=(
-                    f"🎬 *{session.selected_anime_name}*\n"
-                    f"📺 Episode: {session.selected_episode}\n"
-                    f"📊 Quality: {stream.resolution}\n"
-                    # f"🎥 Provider: {stream.provider}"
+                video=InputFile(video_file, filename="video.mp4"),  # stream.url,
+                caption=VIDEO["caption"].format(
+                    name=session.selected_anime_name,
+                    episode=session.selected_episode,
+                    quality=stream.resolution,
                 ),
                 parse_mode="Markdown",
                 supports_streaming=True,
@@ -414,21 +425,15 @@ async def send_video(query, session, stream) -> int:
         logger.warning(f"Video send failed: {e}, falling back to URL")
 
         # Fallback: send URL as text
-        response = (
-            f"🎬 *{session.selected_anime_name}*\n"
-            f"📺 Episode: {session.selected_episode}\n"
-            f"📊 Quality: {stream.resolution}\n"
-            # f"🎥 Provider: {stream.provider}\n"
-            # f"📁 Format: {stream.format.upper()}\n\n"
-            f"🔗 *Stream URL:*\n`{stream.url}`"
+        response = VIDEO["fallback_message"].format(
+            name=session.selected_anime_name,
+            episode=session.selected_episode,
+            quality=stream.resolution,
+            url=stream.url,
         )
 
-        # if stream.subtitle_url:
-        #     response += f"\n\n📝 *Subtitles:*\n`{stream.subtitle_url}`"
-        #     response += f"\n\n📝 *Subtitles:*\n"
-
         if stream.referrer:
-            response += f"\n\n⚠️ *Note:* Some players may require this referer:\n`{stream.referrer}`"
+            response += VIDEO["fallback_with_referrer"].format(referrer=stream.referrer)
 
         await query.edit_message_text(response, parse_mode="Markdown")
 
@@ -439,7 +444,7 @@ async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     """Handle /cancel command."""
     user_id = update.effective_user.id
     sessions.clear(user_id)
-    await update.message.reply_text("Search cancelled. Use /search to start again.")
+    await update.message.reply_text(SEARCH["cancelled_restart"])
     return ConversationHandler.END
 
 

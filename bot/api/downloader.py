@@ -1,10 +1,9 @@
 import asyncio
-from pathlib import Path
-from typing import Optional, Callable
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+from typing import Callable, Optional
 
 from anipy_api.download import Downloader
-from anipy_api.provider import LanguageTypeEnum
 
 
 class AsyncVideoDownloader:
@@ -12,7 +11,7 @@ class AsyncVideoDownloader:
         self,
         progress_callback: Optional[Callable[[float], None]] = None,
         info_callback: Optional[Callable[[str], None]] = None,
-        error_callback: Optional[Callable[[str], None]] = None
+        error_callback: Optional[Callable[[str], None]] = None,
     ):
         """
         Асинхронный загрузчик видео
@@ -48,9 +47,7 @@ class AsyncVideoDownloader:
     def _create_downloader(self) -> Downloader:
         """Создает новый экземпляр Downloader"""
         return Downloader(
-            self.progress_callback,
-            self.info_callback,
-            self.error_callback
+            self.progress_callback, self.info_callback, self.error_callback
         )
 
     async def download_video(
@@ -59,7 +56,7 @@ class AsyncVideoDownloader:
         download_path: str = "~/Downloads",
         container: str = ".mkv",
         max_retry: int = 3,
-        ffmpeg: bool = False
+        ffmpeg: bool = False,
     ) -> Path:
         """
         Асинхронная загрузка видео
@@ -87,7 +84,7 @@ class AsyncVideoDownloader:
                 download_path,
                 container,
                 max_retry,
-                ffmpeg
+                ffmpeg,
             )
             return download_path
 
@@ -96,12 +93,7 @@ class AsyncVideoDownloader:
             raise
 
     def _download_sync(
-        self,
-        stream,
-        download_path: Path,
-        container: str,
-        max_retry: int,
-        ffmpeg: bool
+        self, stream, download_path: Path, container: str, max_retry: int, ffmpeg: bool
     ) -> Path:
         """Синхронный метод загрузки (выполняется в отдельном потоке)"""
         self._downloader = self._create_downloader()
@@ -111,13 +103,13 @@ class AsyncVideoDownloader:
             download_path=download_path,
             container=container,
             max_retry=max_retry,
-            ffmpeg=ffmpeg
+            ffmpeg=ffmpeg,
         )
 
     def cancel_download(self):
         """Отмена текущей загрузки (если поддерживается API)"""
         if self._downloader:
-            if hasattr(self._downloader, 'cancel'):
+            if hasattr(self._downloader, "cancel"):
                 self._downloader.cancel()
 
     async def close(self):
