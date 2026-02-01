@@ -4,15 +4,14 @@ Conversation state management for the search -> anime -> episode flow.
 Uses in-memory storage for MVP (no persistence).
 """
 
-from enum import IntEnum, auto
 from dataclasses import dataclass, field
+from enum import IntEnum, auto
 from typing import Dict, List, Optional
-
-from ..config import config
 
 
 class ConversationState(IntEnum):
     """States for the conversation flow."""
+
     WAITING_SEARCH_QUERY = auto()
     SELECTING_ANIME = auto()
     SELECTING_EPISODE = auto()
@@ -22,6 +21,7 @@ class ConversationState(IntEnum):
 @dataclass
 class UserSession:
     """Stores user's current session data."""
+
     # Search state
     search_query: Optional[str] = None
     search_results: List = field(default_factory=list)
@@ -35,7 +35,7 @@ class UserSession:
     selected_episode: Optional[str] = None
 
     # Video links
-    video_links: List = field(default_factory=list)
+    video_streams: List = field(default_factory=list)
 
     # Preferences
     translation_type: str = "sub"

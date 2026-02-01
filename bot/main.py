@@ -4,12 +4,13 @@ Main entry point for the Telegram Anime Bot.
 
 import logging
 import os
+
 from dotenv import load_dotenv
 from telegram.ext import Application, CommandHandler
 
 from .config import config
-from .handlers.search import get_conversation_handler
 from .handlers.errors import error_handler
+from .handlers.search import get_conversation_handler
 
 # Load environment variables
 load_dotenv()
@@ -77,7 +78,7 @@ def main():
     application.add_handler(get_conversation_handler())
 
     # Add error handler
-    application.add_error_handler(error_handler)
+    # application.add_error_handler(error_handler)
 
     # Start polling
     logger.info("Starting bot...")

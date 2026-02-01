@@ -1,0 +1,21 @@
+version: "3.8"
+services:
+  telegram-bot-api:
+    build: .
+    container_name: telegram-local-api
+    restart: unless-stopped
+    environment:
+      TELEGRAM_API_ID: ${TELEGRAM_API_ID}
+      TELEGRAM_API_HASH: ${TELEGRAM_API_HASH}
+    ports:
+      - "8081:8081"
+    volumes:
+      - tgdata:/var/lib/telegram-bot-api
+    command:
+      - --api-id=${TELEGRAM_API_ID}
+      - --api-hash=${TELEGRAM_API_HASH}
+      - --http-port=8081
+      - --dir=/var/lib/telegram-bot-api
+
+volumes:
+  tgdata:

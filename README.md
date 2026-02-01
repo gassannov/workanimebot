@@ -23,6 +23,7 @@ A Telegram bot that allows users to search for and watch anime episodes directly
 ## Prerequisites
 
 - Python 3.8 or higher
+- [uv](https://docs.astral.sh/uv/) package manager
 - A Telegram Bot Token (obtain from [@BotFather](https://t.me/BotFather))
 
 ## Installation
@@ -33,17 +34,22 @@ git clone <repository-url>
 cd tg_anime_bot
 ```
 
-2. Install dependencies:
+2. Install uv (if not already installed):
 ```bash
-pip install -r requirements.txt
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-3. Configure environment variables:
+3. Install dependencies:
+```bash
+uv sync
+```
+
+4. Configure environment variables:
 ```bash
 cp .env.example .env
 ```
 
-4. Edit `.env` and add your bot token:
+5. Edit `.env` and add your bot token:
 ```
 TELEGRAM_BOT_TOKEN=your_bot_token_here
 ```
@@ -52,12 +58,12 @@ TELEGRAM_BOT_TOKEN=your_bot_token_here
 
 Run the bot:
 ```bash
-python -m bot.main
+uv run bot
 ```
 
-Or if you prefer:
+Or using the script entry point:
 ```bash
-python -m bot
+uv run anime-bot
 ```
 
 The bot will start polling for updates. You can now interact with it on Telegram!

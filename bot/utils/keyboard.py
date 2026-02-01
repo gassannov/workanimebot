@@ -2,12 +2,12 @@
 Inline keyboard builders for Telegram bot UI.
 """
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from typing import List
 
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+
+from ..api import AnimeResult, VideoLink
 from ..config import config
-from ..api.allanime import AnimeResult
-from ..api.providers import VideoLink
 
 # Callback data prefixes
 ANIME_PREFIX = "anime:"
@@ -33,33 +33,47 @@ def build_anime_list_keyboard(
     buttons = []
 
     for i, anime in enumerate(page_results, start=start_idx + 1):
-        ep_count = anime.available_episodes_sub if translation_type == "sub" else anime.available_episodes_dub
+        ep_count = (
+            anime.available_episodes_sub
+            if translation_type == "sub"
+            else anime.available_episodes_dub
+        )
         # Truncate long names
         name = anime.name
         if len(name) > 35:
             name = name[:32] + "..."
         text = f"{i}. {name} ({ep_count} ep)"
-        buttons.append([
-            InlineKeyboardButton(text, callback_data=f"{ANIME_PREFIX}{anime.id}")
-        ])
+        buttons.append(
+            [InlineKeyboardButton(text, callback_data=f"{ANIME_PREFIX}{anime.id}")]
+        )
 
     # Navigation row
     nav_row = []
     if page > 0:
-        nav_row.append(InlineKeyboardButton("◀️ Prev", callback_data=f"{PAGE_PREFIX}anime:{page - 1}"))
+        nav_row.append(
+            InlineKeyboardButton(
+                "◀️ Prev", callback_data=f"{PAGE_PREFIX}anime:{page - 1}"
+            )
+        )
 
     # Dub/Sub toggle
     toggle_text = "🔊 Dub" if translation_type == "sub" else "📝 Sub"
     nav_row.append(InlineKeyboardButton(toggle_text, callback_data=DUB_TOGGLE))
 
     if end_idx < len(results):
-        nav_row.append(InlineKeyboardButton("Next ▶️", callback_data=f"{PAGE_PREFIX}anime:{page + 1}"))
+        nav_row.append(
+            InlineKeyboardButton(
+                "Next ▶️", callback_data=f"{PAGE_PREFIX}anime:{page + 1}"
+            )
+        )
 
     if nav_row:
         buttons.append(nav_row)
 
     # Cancel button
-    buttons.append([InlineKeyboardButton("❌ Cancel", callback_data=f"{BACK_PREFIX}cancel")])
+    buttons.append(
+        [InlineKeyboardButton("❌ Cancel", callback_data=f"{BACK_PREFIX}cancel")]
+    )
 
     return InlineKeyboardMarkup(buttons)
 
@@ -79,7 +93,9 @@ def build_episode_list_keyboard(
     # Create episode buttons in rows of 5
     row = []
     for ep in page_episodes:
-        row.append(InlineKeyboardButton(f"Ep {ep}", callback_data=f"{EPISODE_PREFIX}{ep}"))
+        row.append(
+            InlineKeyboardButton(f"Ep {ep}", callback_data=f"{EPISODE_PREFIX}{ep}")
+        )
         if len(row) == 5:
             buttons.append(row)
             row = []
@@ -91,41 +107,59 @@ def build_episode_list_keyboard(
     nav_row = []
 
     if page > 0:
-        nav_row.append(InlineKeyboardButton("◀️", callback_data=f"{PAGE_PREFIX}ep:{page - 1}"))
+        nav_row.append(
+            InlineKeyboardButton("◀️", callback_data=f"{PAGE_PREFIX}ep:{page - 1}")
+        )
 
-    nav_row.append(InlineKeyboardButton(f"{page + 1}/{total_pages}", callback_data=NOOP))
+    nav_row.append(
+        InlineKeyboardButton(f"{page + 1}/{total_pages}", callback_data=NOOP)
+    )
 
     if end_idx < len(episodes):
-        nav_row.append(InlineKeyboardButton("▶️", callback_data=f"{PAGE_PREFIX}ep:{page + 1}"))
+        nav_row.append(
+            InlineKeyboardButton("▶️", callback_data=f"{PAGE_PREFIX}ep:{page + 1}")
+        )
 
     buttons.append(nav_row)
 
     # Back button
-    buttons.append([InlineKeyboardButton("🔙 Back to Search", callback_data=f"{BACK_PREFIX}search")])
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                "🔙 Back to Search", callback_data=f"{BACK_PREFIX}search"
+            )
+        ]
+    )
 
     return InlineKeyboardMarkup(buttons)
 
 
-def build_quality_keyboard(video_links: List[VideoLink]) -> InlineKeyboardMarkup:
+def build_quality_keyboard(streams) -> InlineKeyboardMarkup:
     """Build inline keyboard for quality selection."""
     buttons = []
 
     # Deduplicate by quality
     seen_qualities = set()
-    unique_links = []
-    for link in video_links:
-        if link.quality not in seen_qualities:
-            seen_qualities.add(link.quality)
-            unique_links.append(link)
+    unique_streams = []
+    for stream in streams:
+        if stream.resolution not in seen_qualities:
+            seen_qualities.add(stream.resolution)
+            unique_streams.append(stream)
 
-    for link in unique_links[:6]:  # Limit to 6 quality options
-        text = f"{link.quality} ({link.provider}, {link.format})"
+    for stream in unique_streams[:6]:  # Limit to 6 quality options
+        text = f"{stream.resolution}"
         # Use index in original list for callback
-        idx = video_links.index(link)
-        buttons.append([
-            InlineKeyboardButton(text, callback_data=f"{QUALITY_PREFIX}{idx}")
-        ])
+        idx = streams.index(stream)
+        buttons.append(
+            [InlineKeyboardButton(text, callback_data=f"{QUALITY_PREFIX}{idx}")]
+        )
 
-    buttons.append([InlineKeyboardButton("🔙 Back to Episodes", callback_data=f"{BACK_PREFIX}episodes")])
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                "🔙 Back to Episodes", callback_data=f"{BACK_PREFIX}episodes"
+            )
+        ]
+    )
 
     return InlineKeyboardMarkup(buttons)

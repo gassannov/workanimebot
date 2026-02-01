@@ -3,32 +3,31 @@ Search command and conversation handlers.
 """
 
 import logging
+
 from telegram import Update
 from telegram.ext import (
+    CallbackQueryHandler,
+    CommandHandler,
     ContextTypes,
     ConversationHandler,
-    CommandHandler,
     MessageHandler,
-    CallbackQueryHandler,
     filters,
 )
 
-from ..config import config
-from ..api.allanime import api_client
-from ..api.providers import provider_extractor
-from ..utils.state import ConversationState, sessions
+from ..api import api_client, downloader
 from ..utils.keyboard import (
+    ANIME_PREFIX,
+    BACK_PREFIX,
+    DUB_TOGGLE,
+    EPISODE_PREFIX,
+    NOOP,
+    PAGE_PREFIX,
+    QUALITY_PREFIX,
     build_anime_list_keyboard,
     build_episode_list_keyboard,
     build_quality_keyboard,
-    ANIME_PREFIX,
-    EPISODE_PREFIX,
-    PAGE_PREFIX,
-    QUALITY_PREFIX,
-    BACK_PREFIX,
-    DUB_TOGGLE,
-    NOOP,
 )
+from ..utils.state import ConversationState, sessions
 
 logger = logging.getLogger(__name__)
 
@@ -51,14 +50,15 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     # Otherwise, ask for query
     await update.message.reply_text(
-        "🔍 *Search Anime*\n\n"
-        "Please enter the anime name you want to search for:",
+        "🔍 *Search Anime*\n\n" "Please enter the anime name you want to search for:",
         parse_mode="Markdown",
     )
     return ConversationState.WAITING_SEARCH_QUERY
 
 
-async def receive_search_query(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+async def receive_search_query(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> int:
     """Handle search query message."""
     query = update.message.text.strip()
 
@@ -69,7 +69,9 @@ async def receive_search_query(update: Update, context: ContextTypes.DEFAULT_TYP
     return await perform_search(update, context, query)
 
 
-async def perform_search(update: Update, context: ContextTypes.DEFAULT_TYPE, query: str) -> int:
+async def perform_search(
+    update: Update, context: ContextTypes.DEFAULT_TYPE, query: str
+) -> int:
     """Execute search and display results."""
     user_id = update.effective_user.id
     session = sessions.get(user_id)
@@ -119,7 +121,9 @@ async def perform_search(update: Update, context: ContextTypes.DEFAULT_TYPE, que
         return ConversationHandler.END
 
 
-async def select_anime_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+async def select_anime_callback(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> int:
     """Handle anime selection from inline keyboard."""
     query = update.callback_query
     await query.answer()
@@ -151,7 +155,9 @@ async def select_anime_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
         # Re-search with new translation type
         try:
-            results = await api_client.search(session.search_query, session.translation_type)
+            results = await api_client.search(
+                session.search_query, session.translation_type
+            )
             session.search_results = results
             session.anime_page = 0
 
@@ -182,7 +188,7 @@ async def select_anime_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
     # Handle anime selection
     if data.startswith(ANIME_PREFIX):
-        anime_id = data[len(ANIME_PREFIX):]
+        anime_id = data[len(ANIME_PREFIX) :]
 
         # Find selected anime
         selected = next((a for a in session.search_results if a.id == anime_id), None)
@@ -233,7 +239,9 @@ async def select_anime_callback(update: Update, context: ContextTypes.DEFAULT_TY
     return ConversationState.SELECTING_ANIME
 
 
-async def select_episode_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+async def select_episode_callback(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> int:
     """Handle episode selection."""
     query = update.callback_query
     await query.answer()
@@ -272,7 +280,7 @@ async def select_episode_callback(update: Update, context: ContextTypes.DEFAULT_
 
     # Handle episode selection
     if data.startswith(EPISODE_PREFIX):
-        episode = data[len(EPISODE_PREFIX):]
+        episode = data[len(EPISODE_PREFIX) :]
         session.selected_episode = episode
 
         await query.edit_message_text(
@@ -281,52 +289,33 @@ async def select_episode_callback(update: Update, context: ContextTypes.DEFAULT_
         )
 
         try:
-            # Get episode sources
-            sources = await api_client.get_episode_sources(
+            # Get video streams directly
+            video_streams = await api_client.get_video_streams(
                 session.selected_anime_id,
                 episode,
                 session.translation_type,
             )
 
-            if not sources:
+            if not video_streams:
                 await query.edit_message_text(
-                    f"❌ No sources found for Episode {episode}",
-                    parse_mode="Markdown",
-                )
-                keyboard = build_episode_list_keyboard(session.episodes, page=session.episode_page)
-                await query.edit_message_reply_markup(reply_markup=keyboard)
-                return ConversationState.SELECTING_EPISODE
-
-            # Process sources through providers
-            all_links = []
-
-            for source in sources:
-                try:
-                    links = await provider_extractor.extract_from_source(
-                        source.source_name,
-                        source.source_url,
-                    )
-                    all_links.extend(links)
-                except Exception as e:
-                    logger.warning(f"Provider extraction error: {e}")
-                    continue
-
-            if not all_links:
-                await query.edit_message_text(
-                    f"❌ Could not extract video links for Episode {episode}.\n"
+                    f"❌ No video streams found for Episode {episode}.\n"
                     "The sources may be temporarily unavailable.",
                     parse_mode="Markdown",
                 )
+                keyboard = build_episode_list_keyboard(
+                    session.episodes, page=session.episode_page
+                )
+                await query.edit_message_reply_markup(reply_markup=keyboard)
                 return ConversationState.SELECTING_EPISODE
 
-            session.video_links = all_links
+            session.video_streams = video_streams
 
             # If only one quality, send directly
-            if len(all_links) == 1:
-                return await send_video(query, session, all_links[0])
+            if len(video_streams) == 1:
+                return await send_video(query, session, video_streams[0])
 
             # Otherwise, show quality selection
-            keyboard = build_quality_keyboard(all_links)
+            keyboard = build_quality_keyboard(video_streams)
 
             await query.edit_message_text(
                 f"🎬 *{session.selected_anime_name}* - Episode {episode}\n\n"
@@ -345,7 +334,9 @@ async def select_episode_callback(update: Update, context: ContextTypes.DEFAULT_
     return ConversationState.SELECTING_EPISODE
 
 
-async def select_quality_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+async def select_quality_callback(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> int:
     """Handle quality selection."""
     query = update.callback_query
     await query.answer()
@@ -356,7 +347,9 @@ async def select_quality_callback(update: Update, context: ContextTypes.DEFAULT_
 
     # Handle back to episodes
     if data == f"{BACK_PREFIX}episodes":
-        keyboard = build_episode_list_keyboard(session.episodes, page=session.episode_page)
+        keyboard = build_episode_list_keyboard(
+            session.episodes, page=session.episode_page
+        )
         await query.edit_message_text(
             f"📺 *{session.selected_anime_name}*\n"
             f"Type: {session.translation_type.upper()}\n"
@@ -370,26 +363,26 @@ async def select_quality_callback(update: Update, context: ContextTypes.DEFAULT_
     # Handle quality selection
     if data.startswith(QUALITY_PREFIX):
         try:
-            idx = int(data[len(QUALITY_PREFIX):])
-            if 0 <= idx < len(session.video_links):
-                link = session.video_links[idx]
-                return await send_video(query, session, link)
+            idx = int(data[len(QUALITY_PREFIX) :])
+            if 0 <= idx < len(session.video_streams):
+                stream = session.video_streams[idx]
+                return await send_video(query, session, stream)
         except (ValueError, IndexError):
             pass
 
-        # Fallback to first link
-        if session.video_links:
-            return await send_video(query, session, session.video_links[0])
+        # Fallback to first stream
+        if session.video_streams:
+            return await send_video(query, session, session.video_streams[0])
 
     return ConversationState.SELECTING_QUALITY
 
 
-async def send_video(query, session, link) -> int:
+async def send_video(query, session, stream) -> int:
     """Send the video to user via Telegram."""
     # Edit message to show loading
     await query.edit_message_text(
         f"📤 Sending *{session.selected_anime_name}* - Episode {session.selected_episode}...\n"
-        f"Quality: {link.quality}\n\n"
+        f"Quality: {stream.resolution}\n\n"
         "Please wait, this may take a moment...",
         parse_mode="Markdown",
     )
@@ -397,17 +390,22 @@ async def send_video(query, session, link) -> int:
     try:
         # Try to send video by URL (Telegram fetches it)
         # This works for larger files than the 50MB upload limit
-        await query.message.reply_video(
-            video=link.url,
-            caption=(
-                f"🎬 *{session.selected_anime_name}*\n"
-                f"📺 Episode: {session.selected_episode}\n"
-                f"📊 Quality: {link.quality}\n"
-                f"🎥 Provider: {link.provider}"
-            ),
-            parse_mode="Markdown",
-            supports_streaming=True,
-        )
+        from telegram import InputFile
+        import os
+        file_path = await downloader.download_video(stream)
+
+        with open(file_path, 'rb') as video_file:
+            await query.message.reply_video(
+                video=InputFile(video_file, filename="video.mp4"),#stream.url,
+                caption=(
+                    f"🎬 *{session.selected_anime_name}*\n"
+                    f"📺 Episode: {session.selected_episode}\n"
+                    f"📊 Quality: {stream.resolution}\n"
+                    # f"🎥 Provider: {stream.provider}"
+                ),
+                parse_mode="Markdown",
+                supports_streaming=True,
+            )
 
         # Delete the loading message
         await query.message.delete()
@@ -419,17 +417,18 @@ async def send_video(query, session, link) -> int:
         response = (
             f"🎬 *{session.selected_anime_name}*\n"
             f"📺 Episode: {session.selected_episode}\n"
-            f"📊 Quality: {link.quality}\n"
-            f"🎥 Provider: {link.provider}\n"
-            f"📁 Format: {link.format.upper()}\n\n"
-            f"🔗 *Stream URL:*\n`{link.url}`"
+            f"📊 Quality: {stream.resolution}\n"
+            # f"🎥 Provider: {stream.provider}\n"
+            # f"📁 Format: {stream.format.upper()}\n\n"
+            f"🔗 *Stream URL:*\n`{stream.url}`"
         )
 
-        if link.subtitle_url:
-            response += f"\n\n📝 *Subtitles:*\n`{link.subtitle_url}`"
+        # if stream.subtitle_url:
+        #     response += f"\n\n📝 *Subtitles:*\n`{stream.subtitle_url}`"
+        #     response += f"\n\n📝 *Subtitles:*\n"
 
-        if link.referer:
-            response += f"\n\n⚠️ *Note:* Some players may require this referer:\n`{link.referer}`"
+        if stream.referrer:
+            response += f"\n\n⚠️ *Note:* Some players may require this referer:\n`{stream.referrer}`"
 
         await query.edit_message_text(response, parse_mode="Markdown")
 

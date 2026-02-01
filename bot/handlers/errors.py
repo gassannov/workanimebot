@@ -3,6 +3,7 @@ Error handling for the bot.
 """
 
 import logging
+
 from telegram import Update
 from telegram.ext import ContextTypes
 
