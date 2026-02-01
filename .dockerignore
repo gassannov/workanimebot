@@ -1,0 +1,58 @@
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info
+dist
+build
+.eggs
+
+# Virtual environments
+.venv
+venv
+ENV
+env
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose.yaml
+
+# Environment files (will be provided at runtime)
+.env
+.env.example
+
+# Documentation
+*.md
+CLAUDE.md
+README.md
+
+# CI/CD
+.github
+
+# Data and logs
+*.log
+telegram-bot-api-data
+
+# Cache
+.cache
+.pytest_cache
+.ruff_cache
+.pyrefly
+
+# UV cache (will be recreated in container)
+.uv

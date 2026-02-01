@@ -11,6 +11,7 @@ from dataclasses import dataclass
 class Config:
     # Telegram
     BOT_TOKEN: str = os.getenv("TELEGRAM_BOT_TOKEN", "")
+    TELEGRAM_BASE_URL: str | None = None
 
     # AllAnime API (mirrors ani-cli lines 381-384)
     ALLANIME_API: str = "https://api.allanime.day/api"
