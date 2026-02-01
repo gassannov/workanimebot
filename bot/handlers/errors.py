@@ -7,6 +7,8 @@ import logging
 from telegram import Update
 from telegram.ext import ContextTypes
 
+from ..strings import ERRORS
+
 logger = logging.getLogger(__name__)
 
 
@@ -23,8 +25,7 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 error_msg = error_msg[:100] + "..."
 
             await update.effective_message.reply_text(
-                f"❌ An error occurred: {error_msg}\n\n"
-                "Please try again or use /search to start a new search."
+                ERRORS["general"].format(error=error_msg)
             )
         except Exception as e:
             logger.error(f"Could not send error message to user: {e}")

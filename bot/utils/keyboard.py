@@ -6,8 +6,9 @@ from typing import List
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-from ..api import AnimeResult, VideoLink
+from ..api import AnimeResult
 from ..config import config
+from ..strings import BUTTONS
 
 # Callback data prefixes
 ANIME_PREFIX = "anime:"
@@ -52,18 +53,18 @@ def build_anime_list_keyboard(
     if page > 0:
         nav_row.append(
             InlineKeyboardButton(
-                "◀️ Prev", callback_data=f"{PAGE_PREFIX}anime:{page - 1}"
+                BUTTONS["prev"], callback_data=f"{PAGE_PREFIX}anime:{page - 1}"
             )
         )
 
     # Dub/Sub toggle
-    toggle_text = "🔊 Dub" if translation_type == "sub" else "📝 Sub"
+    toggle_text = BUTTONS["dub"] if translation_type == "sub" else BUTTONS["sub"]
     nav_row.append(InlineKeyboardButton(toggle_text, callback_data=DUB_TOGGLE))
 
     if end_idx < len(results):
         nav_row.append(
             InlineKeyboardButton(
-                "Next ▶️", callback_data=f"{PAGE_PREFIX}anime:{page + 1}"
+                BUTTONS["next"], callback_data=f"{PAGE_PREFIX}anime:{page + 1}"
             )
         )
 
@@ -72,7 +73,7 @@ def build_anime_list_keyboard(
 
     # Cancel button
     buttons.append(
-        [InlineKeyboardButton("❌ Cancel", callback_data=f"{BACK_PREFIX}cancel")]
+        [InlineKeyboardButton(BUTTONS["cancel"], callback_data=f"{BACK_PREFIX}cancel")]
     )
 
     return InlineKeyboardMarkup(buttons)
@@ -94,7 +95,10 @@ def build_episode_list_keyboard(
     row = []
     for ep in page_episodes:
         row.append(
-            InlineKeyboardButton(f"Ep {ep}", callback_data=f"{EPISODE_PREFIX}{ep}")
+            InlineKeyboardButton(
+                BUTTONS["episode_short"].format(number=ep),
+                callback_data=f"{EPISODE_PREFIX}{ep}",
+            )
         )
         if len(row) == 5:
             buttons.append(row)
@@ -112,7 +116,10 @@ def build_episode_list_keyboard(
         )
 
     nav_row.append(
-        InlineKeyboardButton(f"{page + 1}/{total_pages}", callback_data=NOOP)
+        InlineKeyboardButton(
+            BUTTONS["page_indicator"].format(current=page + 1, total=total_pages),
+            callback_data=NOOP,
+        )
     )
 
     if end_idx < len(episodes):
@@ -126,7 +133,7 @@ def build_episode_list_keyboard(
     buttons.append(
         [
             InlineKeyboardButton(
-                "🔙 Back to Search", callback_data=f"{BACK_PREFIX}search"
+                BUTTONS["back_to_search"], callback_data=f"{BACK_PREFIX}search"
             )
         ]
     )
@@ -157,7 +164,7 @@ def build_quality_keyboard(streams) -> InlineKeyboardMarkup:
     buttons.append(
         [
             InlineKeyboardButton(
-                "🔙 Back to Episodes", callback_data=f"{BACK_PREFIX}episodes"
+                BUTTONS["back_to_episodes"], callback_data=f"{BACK_PREFIX}episodes"
             )
         ]
     )
