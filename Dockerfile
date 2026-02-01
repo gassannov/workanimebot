@@ -1,0 +1,33 @@
+# Use Python 3.10 slim image as base
+FROM python:3.10-slim
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies and uv
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Add uv to PATH
+ENV PATH="/root/.cargo/bin:$PATH"
+
+# Copy dependency files
+COPY pyproject.toml uv.lock ./
+
+# Copy anipy-cli directory (required for local editable dependency)
+COPY anipy-cli/ ./anipy-cli/
+
+# Install dependencies using uv
+RUN uv sync --frozen --no-dev
+
+# Copy the bot source code
+COPY bot/ ./bot/
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+
+# Run the bot using uv
+CMD ["uv", "run", "python", "-m", "bot"]
