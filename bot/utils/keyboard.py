@@ -6,7 +6,7 @@ from typing import List
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-from ..api import AnimeResult, VideoLink
+from ..api import AnimeResult
 from ..config import config
 
 # Callback data prefixes
@@ -17,6 +17,10 @@ QUALITY_PREFIX = "quality:"
 BACK_PREFIX = "back:"
 DUB_TOGGLE = "toggle_dub"
 NOOP = "noop"
+
+# Menu commands
+MENU_SEARCH = "menu:search"
+MENU_HELP = "menu:help"
 
 
 def build_anime_list_keyboard(
@@ -162,4 +166,13 @@ def build_quality_keyboard(streams) -> InlineKeyboardMarkup:
         ]
     )
 
+    return InlineKeyboardMarkup(buttons)
+
+
+def build_main_menu_keyboard() -> InlineKeyboardMarkup:
+    """Build main menu keyboard with command options."""
+    buttons = [
+        [InlineKeyboardButton("🔍 Search Anime", callback_data=MENU_SEARCH)],
+        [InlineKeyboardButton("❓ Help", callback_data=MENU_HELP)],
+    ]
     return InlineKeyboardMarkup(buttons)

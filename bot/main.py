@@ -6,11 +6,12 @@ import logging
 import os
 
 from dotenv import load_dotenv
-from telegram.ext import Application, CommandHandler
+from telegram.ext import Application, CallbackQueryHandler, CommandHandler
 
 from .config import config
-from .handlers.errors import error_handler
+from .handlers.menu import handle_menu, handle_menu_callback
 from .handlers.search import get_conversation_handler
+from .handlers.start import handle_help, handle_start
 
 # Load environment variables
 load_dotenv()
@@ -21,42 +22,6 @@ logging.basicConfig(
     level=logging.INFO,
 )
 logger = logging.getLogger(__name__)
-
-
-async def start_command(update, context):
-    """Handle /start command."""
-    await update.message.reply_text(
-        "🎌 *Welcome to Anime Bot!*\n\n"
-        "I can help you find and watch anime episodes.\n\n"
-        "*Commands:*\n"
-        "• `/search <query>` - Search for anime\n"
-        "• `/search` - Start interactive search\n"
-        "• `/help` - Show help message\n\n"
-        "*Example:*\n"
-        "`/search One Piece`",
-        parse_mode="Markdown",
-    )
-
-
-async def help_command(update, context):
-    """Handle /help command."""
-    await update.message.reply_text(
-        "🎌 *Anime Bot Help*\n\n"
-        "*How to use:*\n"
-        "1. Use `/search <anime name>` to find anime\n"
-        "2. Select an anime from the results\n"
-        "3. Choose an episode\n"
-        "4. Video will be sent to you!\n\n"
-        "*Features:*\n"
-        "• Sub/Dub toggle\n"
-        "• Multiple video quality options\n"
-        "• Direct video in chat\n\n"
-        "*Tips:*\n"
-        "• Use the pagination buttons for long lists\n"
-        "• Switch between sub/dub with the toggle button\n"
-        "• If video fails, you'll get a direct URL",
-        parse_mode="Markdown",
-    )
 
 
 def main():
@@ -71,15 +36,19 @@ def main():
         return
 
     # Create application
-    # application = Application.builder().token(token).build()
-    application = Application.builder() \
-        .token(token) \
-        .base_url(base_url) \
-        .build()
+    application = Application.builder().token(token).base_url(base_url).build()
 
-    # Add handlers
-    application.add_handler(CommandHandler("start", start_command))
-    application.add_handler(CommandHandler("help", help_command))
+    # Add command handlers
+    application.add_handler(CommandHandler("start", handle_start))
+    application.add_handler(CommandHandler("menu", handle_menu))
+    application.add_handler(CommandHandler("help", handle_help))
+
+    # Add menu callback handler (should be before conversation handler)
+    application.add_handler(
+        CallbackQueryHandler(handle_menu_callback, pattern="^menu:")
+    )
+
+    # Add conversation handler for search flow
     application.add_handler(get_conversation_handler())
 
     # Add error handler
