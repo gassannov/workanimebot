@@ -3,6 +3,7 @@ Search command and conversation handlers.
 """
 
 import logging
+from pathlib import Path
 
 from telegram import Update
 from telegram.ext import (
@@ -14,7 +15,9 @@ from telegram.ext import (
     filters,
 )
 
-from ..api import api_client, downloader
+from anime_app import AnimeService
+from anime_app.models import StreamOption
+
 from ..utils.keyboard import (
     ANIME_PREFIX,
     BACK_PREFIX,
@@ -30,6 +33,7 @@ from ..utils.keyboard import (
 from ..utils.state import ConversationState, sessions
 
 logger = logging.getLogger(__name__)
+anime_service = AnimeService()
 
 
 async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -72,7 +76,17 @@ async def receive_search_query(
 async def perform_search(
     update: Update, context: ContextTypes.DEFAULT_TYPE, query: str
 ) -> int:
-    """Execute search and display results."""
+    """Execute anime search and render the result list.
+
+    Args:
+        update: Telegram update carrying the user request.
+        context: Telegram callback context.
+        query: Search text submitted by the user.
+
+    Returns:
+        int: Next conversation state.
+    """
+
     user_id = update.effective_user.id
     session = sessions.get(user_id)
 
@@ -84,7 +98,7 @@ async def perform_search(
 
     try:
         # Perform search
-        results = await api_client.search(query, session.translation_type)
+        results = await anime_service.search_anime(query, session.translation_type)
 
         if not results:
             await message.edit_text(
@@ -155,7 +169,7 @@ async def select_anime_callback(
 
         # Re-search with new translation type
         try:
-            results = await api_client.search(
+            results = await anime_service.search_anime(
                 session.search_query, session.translation_type
             )
             session.search_results = results
@@ -197,20 +211,25 @@ async def select_anime_callback(
             return ConversationHandler.END
 
         session.selected_anime_id = anime_id
-        session.selected_anime_name = selected.name
+        session.selected_anime_name = selected.title
 
         # Fetch episodes
         await query.edit_message_text(
-            f"📺 Loading episodes for *{selected.name}*...",
+            f"📺 Loading episodes for *{selected.title}*...",
             parse_mode="Markdown",
         )
 
         try:
-            episodes = await api_client.get_episodes(anime_id, session.translation_type)
+            episodes = await anime_service.list_episodes(
+                anime_id,
+                session.translation_type,
+            )
 
             if not episodes:
                 await query.edit_message_text(
-                    f"❌ No {session.translation_type.upper()} episodes available for *{selected.name}*",
+                    "❌ No "
+                    f"{session.translation_type.upper()} episodes available for "
+                    f"*{selected.title}*",
                     parse_mode="Markdown",
                 )
                 return ConversationHandler.END
@@ -221,7 +240,7 @@ async def select_anime_callback(
             keyboard = build_episode_list_keyboard(episodes, page=0)
 
             await query.edit_message_text(
-                f"📺 *{selected.name}*\n"
+                f"📺 *{selected.title}*\n"
                 f"Type: {session.translation_type.upper()}\n"
                 f"Episodes: {len(episodes)}\n\n"
                 "Select an episode:",
@@ -290,7 +309,7 @@ async def select_episode_callback(
 
         try:
             # Get video streams directly
-            video_streams = await api_client.get_video_streams(
+            video_streams = await anime_service.get_stream_options(
                 session.selected_anime_id,
                 episode,
                 session.translation_type,
@@ -337,7 +356,16 @@ async def select_episode_callback(
 async def select_quality_callback(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> int:
-    """Handle quality selection."""
+    """Handle stream quality selection.
+
+    Args:
+        update: Telegram update carrying the callback query.
+        context: Telegram callback context.
+
+    Returns:
+        int: Next conversation state.
+    """
+
     query = update.callback_query
     await query.answer()
 
@@ -377,31 +405,46 @@ async def select_quality_callback(
     return ConversationState.SELECTING_QUALITY
 
 
-async def send_video(query, session, stream) -> int:
-    """Send the video to user via Telegram."""
+async def send_video(query, session, stream: StreamOption) -> int:
+    """Download a stream via the application layer and send it to Telegram.
+
+    Args:
+        query: Telegram callback query used to update messages.
+        session: Current in-memory user session.
+        stream: Selected application-layer stream option.
+
+    Returns:
+        int: Final conversation state.
+    """
+
     # Edit message to show loading
     await query.edit_message_text(
-        f"📤 Sending *{session.selected_anime_name}* - Episode {session.selected_episode}...\n"
-        f"Quality: {stream.resolution}\n\n"
+        "📤 Sending "
+        f"*{session.selected_anime_name}* - Episode "
+        f"{session.selected_episode}...\n"
+        f"Quality: {stream.resolution_label}\n\n"
         "Please wait, this may take a moment...",
         parse_mode="Markdown",
     )
 
     try:
-        # Try to send video by URL (Telegram fetches it)
-        # This works for larger files than the 50MB upload limit
         from telegram import InputFile
-        import os
-        file_path = await downloader.download_video(stream)
+        download_result = await anime_service.download_stream(
+            stream,
+            anime_title=session.selected_anime_name,
+            episode=session.selected_episode,
+        )
 
-        with open(file_path, 'rb') as video_file:
+        with open(download_result.file_path, "rb") as video_file:
             await query.message.reply_video(
-                video=InputFile(video_file, filename="video.mp4"),#stream.url,
+                video=InputFile(
+                    video_file,
+                    filename=Path(download_result.file_path).name,
+                ),
                 caption=(
                     f"🎬 *{session.selected_anime_name}*\n"
                     f"📺 Episode: {session.selected_episode}\n"
-                    f"📊 Quality: {stream.resolution}\n"
-                    # f"🎥 Provider: {stream.provider}"
+                    f"📊 Quality: {download_result.resolution}\n"
                 ),
                 parse_mode="Markdown",
                 supports_streaming=True,
@@ -417,18 +460,18 @@ async def send_video(query, session, stream) -> int:
         response = (
             f"🎬 *{session.selected_anime_name}*\n"
             f"📺 Episode: {session.selected_episode}\n"
-            f"📊 Quality: {stream.resolution}\n"
-            # f"🎥 Provider: {stream.provider}\n"
-            # f"📁 Format: {stream.format.upper()}\n\n"
+            f"📊 Quality: {stream.resolution_label}\n"
             f"🔗 *Stream URL:*\n`{stream.url}`"
         )
 
-        # if stream.subtitle_url:
-        #     response += f"\n\n📝 *Subtitles:*\n`{stream.subtitle_url}`"
-        #     response += f"\n\n📝 *Subtitles:*\n"
+        if stream.subtitle_url:
+            response += f"\n\n📝 *Subtitles:*\n`{stream.subtitle_url}`"
 
-        if stream.referrer:
-            response += f"\n\n⚠️ *Note:* Some players may require this referer:\n`{stream.referrer}`"
+        if stream.referer:
+            response += (
+                "\n\n⚠️ *Note:* Some players may require this referer:\n"
+                f"`{stream.referer}`"
+            )
 
         await query.edit_message_text(response, parse_mode="Markdown")
 
@@ -444,7 +487,15 @@ async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 def get_conversation_handler() -> ConversationHandler:
-    """Create and return the search conversation handler."""
+    """Create the Telegram conversation handler for search flow.
+
+    Args:
+        None.
+
+    Returns:
+        ConversationHandler: Configured search conversation handler.
+    """
+
     return ConversationHandler(
         entry_points=[
             CommandHandler("search", search_command),

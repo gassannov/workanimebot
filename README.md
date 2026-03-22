@@ -1,160 +1,197 @@
 # Telegram Anime Bot
 
-A Telegram bot that allows users to search for and watch anime episodes directly in the chat. Built with Python and powered by the AllAnime API.
+Telegram-бот для поиска аниме, выбора эпизода и отправки видео в чат. В проекте логика поиска, получения потоков и скачивания вынесена в отдельный переиспользуемый application layer `anime_app`, а пакет `bot` отвечает только за Telegram UI и состояние диалога.
 
-## Features
+## Что умеет бот
 
-- **Anime Search**: Search for anime by name
-- **Episode Selection**: Browse and select episodes from available series
-- **Sub/Dub Toggle**: Switch between subtitled and dubbed versions
-- **Multiple Quality Options**: Choose from available video qualities
-- **Direct Video Delivery**: Videos are sent directly in the chat when possible
-- **URL Fallback**: Provides stream URLs when direct delivery isn't available
-- **Pagination**: Navigate through long lists of anime and episodes
-- **Interactive UI**: Inline keyboards for easy navigation
+- искать аниме по названию через `/search`
+- переключать режим `sub` / `dub`
+- показывать найденные тайтлы и эпизоды с пагинацией
+- предлагать доступные качества видео
+- скачивать видео и отправлять его в Telegram
+- отдавать прямую ссылку на поток, если отправка файла не удалась
 
-## Commands
+## Стек
 
-- `/start` - Welcome message and bot introduction
-- `/search <anime name>` - Search for anime (can also be used without a query)
-- `/help` - Display help information
-- `/cancel` - Cancel current search operation
+- Python 3.10+
+- `uv` для управления зависимостями и запуска
+- `python-telegram-bot`
+- `anipy-api` как локальная workspace-зависимость
+- Docker и `docker compose` для контейнерного запуска
 
-## Prerequisites
+## Архитектура
 
-- Python 3.8 or higher
-- [uv](https://docs.astral.sh/uv/) package manager
-- A Telegram Bot Token (obtain from [@BotFather](https://t.me/BotFather))
+Проект разделён на два слоя:
 
-## Installation
+- `anime_app` содержит переиспользуемую прикладную логику: поиск аниме, список эпизодов, получение stream-ов и скачивание файла
+- `bot` содержит Telegram-адаптер: handlers, клавиатуры, in-memory session state и точку входа
 
-1. Clone the repository:
-```bash
-git clone <repository-url>
-cd tg_anime_bot
+Это позволяет повторно использовать основную логику вне Telegram, например из CLI, worker-процесса или другого Python-клиента.
+
+## Структура проекта
+
+```text
+workanimebot/
+├── anime_app/
+│   ├── config.py            # Общая конфигурация provider/download layer
+│   ├── downloader.py        # Скачивание stream-а в локальный файл
+│   ├── gateway.py           # Адаптер к anipy-api
+│   ├── models.py            # Доменные модели результата, stream-а и скачивания
+│   └── service.py           # Use-case orchestration API
+├── bot/
+│   ├── handlers/
+│   │   ├── errors.py        # Глобальный обработчик ошибок
+│   │   └── search.py        # Telegram-сценарий поиска и выбора эпизода
+│   ├── utils/
+│   │   ├── keyboard.py      # Inline-клавиатуры
+│   │   └── state.py         # In-memory сессии пользователей
+│   ├── __main__.py          # Запуск через python -m bot
+│   ├── config.py            # Конфигурация Telegram-бота
+│   └── main.py              # Точка входа Telegram-приложения
+├── tests/                   # Тесты application layer и bot adapter слоя
+├── anipy-cli/               # Вендорная зависимость с anipy-api
+├── docker-compose.yaml      # Локальный запуск бота и Telegram Bot API
+├── Dockerfile
+├── pyproject.toml
+├── uv.lock
+└── README.md
 ```
 
-2. Install uv (if not already installed):
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
+## Переиспользуемый Python API
+
+`anime_app.service.AnimeService` можно использовать без Telegram:
+
+```python
+from anime_app import AnimeService
+
+service = AnimeService()
+
+results = await service.search_anime("One Piece", translation_type="sub")
+episodes = await service.list_episodes(results[0].id, translation_type="sub")
+streams = await service.get_stream_options(results[0].id, episodes[0], "sub")
+download = await service.download_episode(
+    results[0].id,
+    episodes[0],
+    translation_type="sub",
+    anime_title=results[0].title,
+)
 ```
 
-3. Install dependencies:
+## Как работает бот
+
+1. Пользователь вызывает `/search` и вводит название аниме.
+2. `bot/handlers/search.py` вызывает `AnimeService` из `anime_app`.
+3. `AnimeService` через `AnimeGateway` ищет результаты в `anipy-api`.
+4. Пользователь выбирает тайтл и эпизод через inline-клавиатуры.
+5. `AnimeService` получает доступные stream-ы и, при выборе качества, скачивает файл через `AnimeDownloader`.
+6. Telegram-адаптер отправляет готовый файл в чат.
+7. Если отправка файла не удалась, бот показывает прямую ссылку на поток и referer при необходимости.
+
+Состояние диалога хранится в памяти процесса. Перезапуск бота сбрасывает активные пользовательские сессии.
+
+## Переменные окружения
+
+Минимально нужен токен Telegram-бота:
+
+```env
+TELEGRAM_BOT_TOKEN=your_bot_token_here
+```
+
+Опционально можно указать базовый URL Telegram Bot API:
+
+```env
+TELEGRAM_BASE_URL=http://localhost:8081/bot
+```
+
+Для application layer также доступны:
+
+```env
+ANIME_PROVIDER=allanime
+ANIME_DOWNLOAD_DIR=~/Downloads/workanimebot
+ANIME_DOWNLOAD_CONTAINER=.mkv
+ANIME_DOWNLOAD_MAX_RETRY=3
+ANIME_USE_FFMPEG=false
+```
+
+## Локальный запуск
+
+1. Установить `uv`.
+2. Создать `.env` в корне проекта и добавить `TELEGRAM_BOT_TOKEN`.
+3. Установить зависимости:
+
 ```bash
 uv sync
 ```
 
-4. Configure environment variables:
-```bash
-cp .env.example .env
-```
+4. Запустить бота:
 
-5. Edit `.env` and add your bot token:
-```
-TELEGRAM_BOT_TOKEN=your_bot_token_here
-```
-
-## Usage
-
-Run the bot:
-```bash
-uv run bot
-```
-
-Or using the script entry point:
 ```bash
 uv run anime-bot
 ```
 
-The bot will start polling for updates. You can now interact with it on Telegram!
+Альтернативный запуск:
 
-## How It Works
-
-1. User searches for an anime using `/search <anime name>`
-2. Bot displays a list of matching anime with pagination
-3. User selects an anime from the list
-4. Bot fetches and displays available episodes
-5. User selects an episode
-6. Bot retrieves video sources and presents quality options
-7. User selects quality, and the video is sent directly in the chat
-
-If direct video delivery fails (e.g., due to file size or format limitations), the bot provides a streaming URL instead.
-
-## Project Structure
-
-```
-tg_anime_bot/
-├── bot/
-│   ├── __init__.py
-│   ├── main.py              # Entry point
-│   ├── config.py            # Configuration settings
-│   ├── api/
-│   │   ├── __init__.py
-│   │   ├── allanime.py      # AllAnime API client
-│   │   ├── decoder.py       # URL decoding utilities
-│   │   └── providers.py     # Video provider extractors
-│   ├── handlers/
-│   │   ├── __init__.py
-│   │   ├── search.py        # Search and conversation handlers
-│   │   └── errors.py        # Error handling
-│   └── utils/
-│       ├── __init__.py
-│       ├── keyboard.py      # Inline keyboard builders
-│       └── state.py         # Session state management
-├── ani-cli/                 # Reference implementation
-├── .env.example
-├── requirements.txt
-└── README.md
+```bash
+uv run python -m bot
 ```
 
-## Configuration
+## Запуск через Docker
 
-The bot can be configured in `bot/config.py`:
+Для контейнерного запуска используется `docker compose`:
 
-- `TRANSLATION_TYPE`: Default translation type (`"sub"` or `"dub"`)
-- `SEARCH_LIMIT`: Maximum number of search results (default: 40)
-- `ITEMS_PER_PAGE`: Number of anime shown per page (default: 8)
-- `EPISODES_PER_PAGE`: Number of episodes shown per page (default: 15)
+```bash
+docker compose up --build
+```
 
-## Dependencies
+Конфигурация поднимает два сервиса:
 
-- `python-telegram-bot` (>=20.0) - Telegram Bot API wrapper
-- `aiohttp` (>=3.8.0) - Async HTTP client
-- `python-dotenv` (>=1.0.0) - Environment variable management
+- `telegram-bot` с самим приложением
+- `telegram-bot-api` с локальным Telegram Bot API сервером
 
-## Troubleshooting
+В контейнерном режиме боту передается `TELEGRAM_BASE_URL=http://telegram-bot-api:8081/bot`.
 
-### Bot doesn't respond
-- Ensure your bot token is correct in the `.env` file
-- Check if the bot is running without errors
-- Verify your internet connection
+## Основные команды
 
-### Video delivery fails
-- The bot will automatically fall back to providing a stream URL
-- Some videos may be too large for Telegram's limits
-- Try different quality options if available
+- `/start` - краткое описание бота
+- `/help` - подсказка по использованию
+- `/search <название>` - поиск аниме
+- `/search` - интерактивный старт поиска
+- `/cancel` - завершить текущий сценарий
 
-### No search results
-- Check if the anime name is spelled correctly
-- Try using alternative titles (English/Japanese)
-- Some anime may not be available in the selected language (sub/dub)
+## Разработка
 
-## Legal Notice
+Установка зависимостей:
 
-This bot is for educational purposes only. Users are responsible for ensuring they have the right to access and share any content through this bot. The developers do not host or distribute any content; the bot merely provides an interface to third-party services.
+```bash
+uv sync
+```
 
-## Contributing
+Запуск линтера:
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+```bash
+uv run ruff check .
+```
 
-## License
+Запуск тестов:
 
-This project is open source and available under the MIT License.
+```bash
+uv run pytest
+```
 
-## Acknowledgments
+Тесты лежат в `tests/` и покрывают:
 
-- Inspired by [ani-cli](https://github.com/pystardust/ani-cli)
-- Uses the AllAnime API for anime data and streaming sources
+- orchestration в `anime_app.service.AnimeService`
+- Telegram handler как адаптер поверх application layer
 
+## Важные замечания
 
-curl http://localhost:8081/bot8468796408:AAEN8efd4GDwyGSfZowGWGxRlGX-XRL6IqM/getMe
+- Библиотека `anipy-api` подключена локально через `uv` из `anipy-cli/api`.
+- Бот не должен содержать бизнес-логику загрузки; она находится в `anime_app`.
+- Отправка видео зависит от доступности источников и ограничений Telegram.
+- `README.md` должен оставаться синхронизированным с фактической структурой проекта.
+
+## Ограничения
+
+- Сессии пользователей не сохраняются между перезапусками.
+- Видео сначала скачивается локально, а затем отправляется в Telegram.
+- При сетевых ограничениях `uv` не сможет подтянуть недостающие build-зависимости для `anipy-api`.

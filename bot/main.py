@@ -9,7 +9,6 @@ from dotenv import load_dotenv
 from telegram.ext import Application, CommandHandler
 
 from .config import config
-from .handlers.errors import error_handler
 from .handlers.search import get_conversation_handler
 
 # Load environment variables
@@ -72,6 +71,7 @@ def main():
 
     # Create application
     # application = Application.builder().token(token).build()
+    print(base_url)
     application = Application.builder() \
         .token(token) \
         .base_url(base_url) \
