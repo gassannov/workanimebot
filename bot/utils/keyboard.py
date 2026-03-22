@@ -6,7 +6,8 @@ from typing import List
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-from ..api import AnimeResult, VideoLink
+from anime_app.models import AnimeResult, StreamOption
+
 from ..config import config
 
 # Callback data prefixes
@@ -24,7 +25,17 @@ def build_anime_list_keyboard(
     page: int = 0,
     translation_type: str = "sub",
 ) -> InlineKeyboardMarkup:
-    """Build inline keyboard for anime search results with pagination."""
+    """Build the anime result keyboard.
+
+    Args:
+        results: Search results to render.
+        page: Zero-based results page.
+        translation_type: Active language mode.
+
+    Returns:
+        InlineKeyboardMarkup: Keyboard for anime selection.
+    """
+
     per_page = config.ITEMS_PER_PAGE
     start_idx = page * per_page
     end_idx = min(start_idx + per_page, len(results))
@@ -39,7 +50,7 @@ def build_anime_list_keyboard(
             else anime.available_episodes_dub
         )
         # Truncate long names
-        name = anime.name
+        name = anime.title
         if len(name) > 35:
             name = name[:32] + "..."
         text = f"{i}. {name} ({ep_count} ep)"
@@ -82,7 +93,16 @@ def build_episode_list_keyboard(
     episodes: List[str],
     page: int = 0,
 ) -> InlineKeyboardMarkup:
-    """Build inline keyboard for episode selection with pagination."""
+    """Build the episode selection keyboard.
+
+    Args:
+        episodes: Episode numbers to render.
+        page: Zero-based episode page.
+
+    Returns:
+        InlineKeyboardMarkup: Keyboard for episode selection.
+    """
+
     per_page = config.EPISODES_PER_PAGE
     start_idx = page * per_page
     end_idx = min(start_idx + per_page, len(episodes))
@@ -134,20 +154,28 @@ def build_episode_list_keyboard(
     return InlineKeyboardMarkup(buttons)
 
 
-def build_quality_keyboard(streams) -> InlineKeyboardMarkup:
-    """Build inline keyboard for quality selection."""
+def build_quality_keyboard(streams: List[StreamOption]) -> InlineKeyboardMarkup:
+    """Build the quality selection keyboard.
+
+    Args:
+        streams: Stream options available for the episode.
+
+    Returns:
+        InlineKeyboardMarkup: Keyboard for quality selection.
+    """
+
     buttons = []
 
     # Deduplicate by quality
     seen_qualities = set()
     unique_streams = []
     for stream in streams:
-        if stream.resolution not in seen_qualities:
-            seen_qualities.add(stream.resolution)
+        if stream.resolution_label not in seen_qualities:
+            seen_qualities.add(stream.resolution_label)
             unique_streams.append(stream)
 
     for stream in unique_streams[:6]:  # Limit to 6 quality options
-        text = f"{stream.resolution}"
+        text = stream.resolution_label
         # Use index in original list for callback
         idx = streams.index(stream)
         buttons.append(
