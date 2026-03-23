@@ -150,6 +150,14 @@ docker compose up --build
 
 В контейнерном режиме боту передается `TELEGRAM_BASE_URL=http://telegram-bot-api:8081/bot`.
 
+Для контейнерной проверки правок можно запустить:
+
+```bash
+docker compose up --build -d telegram-bot
+docker compose logs --tail=100 telegram-bot
+docker compose down
+```
+
 ## Основные команды
 
 - `/start` - краткое описание бота
@@ -178,10 +186,27 @@ uv run ruff check .
 uv run pytest
 ```
 
+Запуск реальных сетевых интеграционных тестов:
+
+```bash
+RUN_NETWORK_TESTS=1 uv run pytest -s tests/test_network_integration.py
+```
+
 Тесты лежат в `tests/` и покрывают:
 
 - orchestration в `anime_app.service.AnimeService`
 - Telegram handler как адаптер поверх application layer
+- реальный поиск `One Piece` и скачивание первого эпизода в отдельном opt-in интеграционном тесте
+
+Проверка Docker runtime:
+
+```bash
+docker compose up --build -d telegram-bot
+docker compose logs --tail=100 telegram-bot
+docker compose down
+```
+
+Эта проверка нужна, чтобы убедиться, что обычный runtime-образ собирается, контейнер поднимается и приложение не падает сразу после старта.
 
 ## Важные замечания
 

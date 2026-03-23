@@ -8,8 +8,6 @@ dependencies = [
     "aiohttp>=3.8.0",
     "python-dotenv>=1.0.0",
     "anipy-api",
-    "ruff>=0.15.7",
-    "pytest>=9.0.2",
 ]
 
 [project.scripts]
@@ -37,5 +35,7 @@ anipy-api = { path = "anipy-cli/api", editable = true }
 
 [dependency-groups]
 dev = [
+    "pytest>=9.0.2",
     "pyrefly>=0.50.1",
+    "ruff>=0.15.7",
 ]

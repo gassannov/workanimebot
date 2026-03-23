@@ -22,6 +22,9 @@ Every function and class must include a docstring. Function docstrings must desc
 
 ## Testing Expectations
 Write tests before implementing any large feature. A feature is not complete until the relevant tests pass. Place tests under `tests/` and prefer names like `test_search.py`. Run the full suite with `uv run pytest` once tests exist.
+At the end of every completed feature, verify the Docker workflow too, but do not run tests inside Docker by default. Run the local checks first, then build and start the normal runtime service with `docker compose up --build -d telegram-bot` or the full stack when needed, confirm the bot container stays up without startup errors, review the logs, and finish the verification by running `docker compose down` before considering the task complete.
+During long-running commands, check status periodically instead of waiting blindly. If a process appears stuck on a step that should normally keep making progress, call that out explicitly, investigate it, and do not treat the command as healthy just because it is still running.
+If verification reveals real errors, restarts, timeouts, or other unexpected runtime behavior, do not stop at reporting them. Continue the work and fix the issue unless the user explicitly asks to stop or the problem is blocked by something outside the repository that you cannot resolve from the current environment.
 
 ## Documentation & Handoff Rules
 `README.md` is the main project document and must always explain the project goal, local startup steps, and module overview.
