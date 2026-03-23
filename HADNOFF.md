@@ -1,85 +1,13 @@
 # Handoff
 
 ## Latest Work
-- Added `tools/bot_ping.py` as a real Telegram e2e health-check helper with `uv run anime-bot-ping`.
-- Configured the helper to reuse `TELEGRAM_API_ID` and `TELEGRAM_API_HASH` from `.env` when dedicated `TELEGRAM_E2E_API_ID` and `TELEGRAM_E2E_API_HASH` are not set.
-- Added `tests/test_bot_ping.py` to cover config parsing, fallback behavior, and response matching for the ping helper.
-- Updated repository `AGENTS.md` so Docker verification can require `uv run anime-bot-ping` with `TELEGRAM_E2E_BOT_USERNAME` and `TELEGRAM_E2E_SESSION_STRING`, while reusing the existing API credentials from `.env`.
-- Switched `docker-compose.yaml` to use `.env.tg_url` for both services and tested startup against the official Telegram Bot API URL.
-- Fixed `.env.tg_url` so `TELEGRAM_BASE_URL` is `https://api.telegram.org/bot` instead of `https://api.telegram.org`; without the `/bot` suffix the entrypoint built an invalid readiness URL and stayed in the wait loop.
-- Verified that with the corrected `.env.tg_url` the bot container now leaves the wait loop and emits normal startup logs, including `Starting bot...` and `Bot is running! Press Ctrl+C to stop.`.
-- Switched `telegram-bot-api` storage in `docker-compose.yaml` from a host bind mount to the named volume `telegram-bot-api-data` to avoid host/container permission mismatches on Docker Desktop.
-- Reproduced the current Docker startup issue: `telegram-bot` stays in `docker-entrypoint.sh` because the readiness request to local `telegram-bot-api` (`/bot<TOKEN>/getMe`) hangs and never returns.
-- Verified that `telegram-bot-api` itself is reachable on `/`, can reach `api.telegram.org` over the network, and stores bot state in the named volume with correct ownership, so the remaining hang is inside the local `telegram-bot-api` method handling rather than in the bot container logs or data volume permissions.
-- Updated `README.md` to mention that local `telegram-bot-api` data is stored in a named Docker volume instead of a bind mount.
-- Expanded Telegram handler integration coverage with tests for `/start`, `/help`, and `/search` without arguments, in addition to the existing `perform_search` adapter test.
-- Tightened the Docker entrypoint wait loop so the bot container now waits for the actual Bot API method endpoint (`getMe`) instead of only waiting for a raw HTTP response on port 8081.
-- Added a Docker entrypoint wait loop so the bot container waits for `telegram-bot-api:8081` before starting the Python process, reducing startup timeouts and restart loops.
-- Updated repository `AGENTS.md` so verification failures must be followed through: if checks reveal real runtime errors, timeouts, or restarts, the next step is to keep fixing them rather than only reporting them.
-- Switched the Docker runtime command to `/app/.venv/bin/python -m bot` so the container uses the prebuilt environment instead of re-entering `uv run` and downloading dev tooling at startup.
-- Removed Docker test-stage and the `telegram-bot-test` compose service so Docker is now used only for the normal runtime image.
-- Updated repository `AGENTS.md` so Docker verification now means building and starting the normal runtime container after local tests, not running tests inside a Docker test image.
-- Updated repository `AGENTS.md` to require periodic status checks during long-running commands and explicit investigation when a process appears stuck on an unexpected step.
-- Updated repository `AGENTS.md` so every completed feature now requires Docker-based verification: start the runtime container, confirm it stays healthy without startup errors, and finish with `docker compose down`.
-- Moved `pytest` and `ruff` into the `dev` dependency group so the runtime image stays lean.
-- Added reusable `anime_app/` with domain models, provider gateway, downloader, config, and `AnimeService`.
-- Removed old `bot/api` wrappers and moved bot flow to the new application layer.
-- Updated Telegram keyboard and session types to depend on `anime_app.models`.
-- Added tests in `tests/` for `AnimeService` orchestration and `bot.handlers.search` as an adapter.
-- Added opt-in network integration tests for real `One Piece` search and first-episode download in `tests/test_network_integration.py`.
-- Added live progress/info output and a 10-minute timeout to the network download integration test; run it with `RUN_NETWORK_TESTS=1 uv run pytest -s tests/test_network_integration.py`.
-- Added a 30-second heartbeat to the network download integration test so long ffmpeg downloads still emit periodic output.
-- Rewrote `README.md` to describe the new architecture and reusable Python API.
-- Added user skill `finish-git` under `~/.codex/skills/finish-git/SKILL.md` to automate committing all current changes and merging the current branch into `main` on explicit request.
-- Updated global Codex instructions in `~/.codex/AGENTS.md` to mention the `finish-git` skill as an available global workflow.
+- Removed the extra worktrees `/Users/margasanov/codes/projects/workanimebot-e2e-bot-ping` and `/Users/margasanov/codes/projects/workanimebot-language-switch` with their uncommitted changes.
+- Deleted the merged local branches `feature/docker-test-flow`, `feature/e2e-bot-ping`, `feature/extract-app-layer`, `feature/language-switch`, and `feature/telegram-e2e-ping`.
 
-## Latest User Requests
-- Make the bot ping helper reuse existing `TELEGRAM_API_ID` and `TELEGRAM_API_HASH` instead of requiring duplicated `TELEGRAM_E2E_*` API variables.
-- Try using `.env.tg_url` and restart Docker to see whether anything changes.
-- Run Docker and check why the bot has no startup logs.
-- Add handler integration coverage so the bot command layer is verified more directly.
-- Finish fixing the runtime startup race with `telegram-bot-api` so Docker verification completes cleanly without startup timeout/restart noise.
-- Add an `AGENTS.md` rule that if runtime verification shows errors, the work should continue until those errors are fixed unless explicitly stopped.
-- Fix the runtime Docker startup so it stops pulling dev tooling and starts directly from the built environment.
-- Remove the Docker test image/service and keep Docker only for runtime verification.
-- Clarify in `AGENTS.md` that tests are local-only and Docker verification should check the normal runtime image, not a separate Docker test image.
-- Add an `AGENTS.md` rule requiring periodic status checks for long-running commands and explicit attention when a process appears stuck unexpectedly.
-- Add an `AGENTS.md` rule requiring end-of-feature Docker verification by starting the container and checking runtime behavior.
-- Make container-based automated checks part of the workflow for code changes.
-- Decompose the project so download/processing logic is separated from bot logic and reusable outside Telegram.
-- Implement that refactor.
-- Add a `finish-git` skill that commits all current changes and merges the branch into `main`.
-- Add the same `finish-git` skill into global Codex context.
-- Add more tests for network functions: search `One Piece` and download the first episode.
+## Latest User Request
+- Check all branches and all worktrees relative to `master`.
+- Delete the extra worktrees and branches even if they contain uncommitted changes.
 
 ## Current State
-- `uv run anime-bot-ping` is now available as a project CLI.
-- The ping helper requires `TELEGRAM_E2E_BOT_USERNAME` and `TELEGRAM_E2E_SESSION_STRING`, and may reuse `TELEGRAM_API_ID` plus `TELEGRAM_API_HASH` from `.env`.
-- `uv run pytest tests/test_bot_ping.py` passed with 6 tests.
-- `docker-compose.yaml` currently points both services at `.env.tg_url`.
-- `.env.tg_url` now uses `TELEGRAM_BASE_URL=https://api.telegram.org/bot`.
-- With that setting, `docker compose logs telegram-bot` shows the bot start normally instead of hanging in the readiness loop.
-- The previous `.env.tg_url` value without `/bot` reproduced a wait-loop failure because the entrypoint generated `https://api.telegram.org<TOKEN>/getMe`, which is invalid.
-- The earlier local Bot API startup problem is still reproducible when the bot is pointed back to `http://telegram-bot-api:8081/bot`: the readiness `getMe` call hangs even though the local `telegram-bot-api` process is up.
-- `docker-compose.yaml` now uses the named volume `telegram-bot-api-data:/var/lib/telegram-bot-api`, and the fresh volume produces correctly owned files inside the container.
-- Handler integration tests now cover `/start`, `/help`, bare `/search`, and `perform_search`.
-- Docker runtime now waits for the Bot API `getMe` endpoint before launching the bot process.
-- Repository instructions now explicitly require continuing the work when verification exposes real runtime errors or instability, unless the user explicitly stops the effort.
-- Docker runtime now starts the bot directly from `/app/.venv/bin/python -m bot`.
-- Repository instructions now explicitly say local tests stay outside Docker; Docker verification is only for the normal runtime image and startup behavior.
-- Repository instructions now explicitly require periodic progress checks during long-running commands and investigation of suspicious stalls.
-- Repository instructions now explicitly require end-of-feature Docker verification for the runtime container and `docker compose down` after checks.
-- `Dockerfile` now builds only the normal runtime image.
-- Docker verification uses `docker compose up --build -d telegram-bot`, log inspection, and `docker compose down`.
-- Dev tooling (`ruff`, `pytest`) remains local-only and is not part of the Docker image workflow.
-- Main application entry point is `bot/main.py`.
-- Telegram flow is still in `bot/handlers/search.py`, but it now calls `anime_app.AnimeService` instead of provider/downloader code directly.
-- Reusable search/download logic now lives in `anime_app/`.
-- Tests now exist under `tests/`.
-- Real network tests are opt-in and run with `RUN_NETWORK_TESTS=1 uv run pytest tests/test_network_integration.py`.
-- Use `-s` when running the network integration test to see progress output while the download is active.
-- The new git-finishing skill is stored outside the repository in the user's Codex skills directory.
-- Global Codex instructions now explicitly mention the `finish-git` skill.
-- `python3 -m compileall anime_app bot tests` passed.
-- `uv run ruff check .` passed.
-- `uv run pytest` passed with 7 tests green and 2 network tests skipped by default.
+- Only `master` remains locally.
+- Main worktree `/Users/margasanov/codes/projects/workanimebot` is the only remaining worktree.
