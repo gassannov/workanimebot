@@ -149,6 +149,7 @@ docker compose up --build
 - `telegram-bot-api` с локальным Telegram Bot API сервером
 
 В контейнерном режиме боту передается `TELEGRAM_BASE_URL=http://telegram-bot-api:8081/bot`.
+Данные локального `telegram-bot-api` хранятся в named volume `telegram-bot-api-data`, а не в bind mount из рабочей директории, чтобы избежать проблем с правами внутри контейнера.
 
 Для контейнерной проверки правок можно запустить:
 

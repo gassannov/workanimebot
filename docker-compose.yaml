@@ -3,14 +3,13 @@ services:
     image: aiogram/telegram-bot-api:latest
     container_name: telegram-bot-api
     restart: unless-stopped
-    env_file: .env
+    env_file: .env.tg_url
     ports:
       - "8081:8081"  # HTTP API
       - "8082:8082"  # Stats (если включен TELEGRAM_STAT)
 
     volumes:
-      # Сохранение данных между перезапусками
-      - ./telegram-bot-api-data:/var/lib/telegram-bot-api
+      - telegram-bot-api-data:/var/lib/telegram-bot-api
 
     # Ограничение ресурсов (опционально)
     # deploy:
@@ -25,10 +24,7 @@ services:
       dockerfile: Dockerfile
     container_name: telegram-anime-bot
     restart: unless-stopped
-    env_file: .env
-    environment:
-      # Use local Telegram Bot API server (optional - comment out to use official Telegram servers)
-      - TELEGRAM_BASE_URL=http://telegram-bot-api:8081/bot
+    env_file: .env.tg_url
     depends_on:
       - telegram-bot-api
 

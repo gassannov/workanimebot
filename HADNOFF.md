@@ -1,6 +1,13 @@
 # Handoff
 
 ## Latest Work
+- Switched `docker-compose.yaml` to use `.env.tg_url` for both services and tested startup against the official Telegram Bot API URL.
+- Fixed `.env.tg_url` so `TELEGRAM_BASE_URL` is `https://api.telegram.org/bot` instead of `https://api.telegram.org`; without the `/bot` suffix the entrypoint built an invalid readiness URL and stayed in the wait loop.
+- Verified that with the corrected `.env.tg_url` the bot container now leaves the wait loop and emits normal startup logs, including `Starting bot...` and `Bot is running! Press Ctrl+C to stop.`.
+- Switched `telegram-bot-api` storage in `docker-compose.yaml` from a host bind mount to the named volume `telegram-bot-api-data` to avoid host/container permission mismatches on Docker Desktop.
+- Reproduced the current Docker startup issue: `telegram-bot` stays in `docker-entrypoint.sh` because the readiness request to local `telegram-bot-api` (`/bot<TOKEN>/getMe`) hangs and never returns.
+- Verified that `telegram-bot-api` itself is reachable on `/`, can reach `api.telegram.org` over the network, and stores bot state in the named volume with correct ownership, so the remaining hang is inside the local `telegram-bot-api` method handling rather than in the bot container logs or data volume permissions.
+- Updated `README.md` to mention that local `telegram-bot-api` data is stored in a named Docker volume instead of a bind mount.
 - Expanded Telegram handler integration coverage with tests for `/start`, `/help`, and `/search` without arguments, in addition to the existing `perform_search` adapter test.
 - Tightened the Docker entrypoint wait loop so the bot container now waits for the actual Bot API method endpoint (`getMe`) instead of only waiting for a raw HTTP response on port 8081.
 - Added a Docker entrypoint wait loop so the bot container waits for `telegram-bot-api:8081` before starting the Python process, reducing startup timeouts and restart loops.
@@ -23,6 +30,8 @@
 - Updated global Codex instructions in `~/.codex/AGENTS.md` to mention the `finish-git` skill as an available global workflow.
 
 ## Latest User Requests
+- Try using `.env.tg_url` and restart Docker to see whether anything changes.
+- Run Docker and check why the bot has no startup logs.
 - Add handler integration coverage so the bot command layer is verified more directly.
 - Finish fixing the runtime startup race with `telegram-bot-api` so Docker verification completes cleanly without startup timeout/restart noise.
 - Add an `AGENTS.md` rule that if runtime verification shows errors, the work should continue until those errors are fixed unless explicitly stopped.
@@ -39,6 +48,12 @@
 - Add more tests for network functions: search `One Piece` and download the first episode.
 
 ## Current State
+- `docker-compose.yaml` currently points both services at `.env.tg_url`.
+- `.env.tg_url` now uses `TELEGRAM_BASE_URL=https://api.telegram.org/bot`.
+- With that setting, `docker compose logs telegram-bot` shows the bot start normally instead of hanging in the readiness loop.
+- The previous `.env.tg_url` value without `/bot` reproduced a wait-loop failure because the entrypoint generated `https://api.telegram.org<TOKEN>/getMe`, which is invalid.
+- The earlier local Bot API startup problem is still reproducible when the bot is pointed back to `http://telegram-bot-api:8081/bot`: the readiness `getMe` call hangs even though the local `telegram-bot-api` process is up.
+- `docker-compose.yaml` now uses the named volume `telegram-bot-api-data:/var/lib/telegram-bot-api`, and the fresh volume produces correctly owned files inside the container.
 - Handler integration tests now cover `/start`, `/help`, bare `/search`, and `perform_search`.
 - Docker runtime now waits for the Bot API `getMe` endpoint before launching the bot process.
 - Repository instructions now explicitly require continuing the work when verification exposes real runtime errors or instability, unless the user explicitly stops the effort.
