@@ -1,6 +1,10 @@
 # Handoff
 
 ## Latest Work
+- Added `tools/bot_ping.py` as a real Telegram e2e health-check helper with `uv run anime-bot-ping`.
+- Configured the helper to reuse `TELEGRAM_API_ID` and `TELEGRAM_API_HASH` from `.env` when dedicated `TELEGRAM_E2E_API_ID` and `TELEGRAM_E2E_API_HASH` are not set.
+- Added `tests/test_bot_ping.py` to cover config parsing, fallback behavior, and response matching for the ping helper.
+- Updated repository `AGENTS.md` so Docker verification can require `uv run anime-bot-ping` with `TELEGRAM_E2E_BOT_USERNAME` and `TELEGRAM_E2E_SESSION_STRING`, while reusing the existing API credentials from `.env`.
 - Switched `docker-compose.yaml` to use `.env.tg_url` for both services and tested startup against the official Telegram Bot API URL.
 - Fixed `.env.tg_url` so `TELEGRAM_BASE_URL` is `https://api.telegram.org/bot` instead of `https://api.telegram.org`; without the `/bot` suffix the entrypoint built an invalid readiness URL and stayed in the wait loop.
 - Verified that with the corrected `.env.tg_url` the bot container now leaves the wait loop and emits normal startup logs, including `Starting bot...` and `Bot is running! Press Ctrl+C to stop.`.
@@ -30,6 +34,7 @@
 - Updated global Codex instructions in `~/.codex/AGENTS.md` to mention the `finish-git` skill as an available global workflow.
 
 ## Latest User Requests
+- Make the bot ping helper reuse existing `TELEGRAM_API_ID` and `TELEGRAM_API_HASH` instead of requiring duplicated `TELEGRAM_E2E_*` API variables.
 - Try using `.env.tg_url` and restart Docker to see whether anything changes.
 - Run Docker and check why the bot has no startup logs.
 - Add handler integration coverage so the bot command layer is verified more directly.
@@ -48,6 +53,9 @@
 - Add more tests for network functions: search `One Piece` and download the first episode.
 
 ## Current State
+- `uv run anime-bot-ping` is now available as a project CLI.
+- The ping helper requires `TELEGRAM_E2E_BOT_USERNAME` and `TELEGRAM_E2E_SESSION_STRING`, and may reuse `TELEGRAM_API_ID` plus `TELEGRAM_API_HASH` from `.env`.
+- `uv run pytest tests/test_bot_ping.py` passed with 6 tests.
 - `docker-compose.yaml` currently points both services at `.env.tg_url`.
 - `.env.tg_url` now uses `TELEGRAM_BASE_URL=https://api.telegram.org/bot`.
 - With that setting, `docker compose logs telegram-bot` shows the bot start normally instead of hanging in the readiness loop.
