@@ -4,7 +4,8 @@ import unittest
 from unittest.mock import patch
 
 from anime_app.models import AnimeResult
-from bot.handlers.search import perform_search
+from bot.handlers.search import perform_search, search_command
+from bot.main import help_command, start_command
 from bot.utils.state import ConversationState, sessions
 
 
@@ -100,6 +101,7 @@ class FakeEffectiveMessage:
         """
 
         self.sent_messages = []
+        self.text = ""
 
     async def reply_text(self, text: str, **kwargs) -> FakeSentMessage:
         """Return a fake sent message object.
@@ -115,6 +117,26 @@ class FakeEffectiveMessage:
         sent_message = FakeSentMessage()
         self.sent_messages.append((text, kwargs, sent_message))
         return sent_message
+
+
+class FakeContext:
+    """Minimal Telegram context object for handler tests.
+
+    Example:
+        context = FakeContext(["One", "Piece"])
+    """
+
+    def __init__(self, args: list[str] | None = None) -> None:
+        """Store fake command arguments.
+
+        Args:
+            args: Command arguments split by Telegram.
+
+        Returns:
+            None.
+        """
+
+        self.args = args or []
 
 
 class FakeUser:
@@ -156,6 +178,7 @@ class FakeUpdate:
 
         self.effective_user = FakeUser(user_id)
         self.effective_message = FakeEffectiveMessage()
+        self.message = self.effective_message
 
 
 class SearchHandlerTests(unittest.IsolatedAsyncioTestCase):
@@ -202,3 +225,66 @@ class SearchHandlerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(session.search_results[0].title, "One Piece")
         self.assertIn("Searching for", sent_text)
         self.assertIn("reply_markup", sent_message.edits[0][1])
+
+    async def test_start_command_replies_with_welcome_message(self) -> None:
+        """Ensure /start returns the expected welcome response.
+
+        Args:
+            None.
+
+        Returns:
+            None.
+        """
+
+        update = FakeUpdate(42)
+        context = FakeContext()
+
+        await start_command(update, context)
+
+        sent_text, sent_kwargs, _sent_message = update.message.sent_messages[0]
+
+        self.assertIn("Welcome to Anime Bot", sent_text)
+        self.assertIn("/search <query>", sent_text)
+        self.assertEqual(sent_kwargs["parse_mode"], "Markdown")
+
+    async def test_help_command_replies_with_usage_message(self) -> None:
+        """Ensure /help returns the expected usage instructions.
+
+        Args:
+            None.
+
+        Returns:
+            None.
+        """
+
+        update = FakeUpdate(42)
+        context = FakeContext()
+
+        await help_command(update, context)
+
+        sent_text, sent_kwargs, _sent_message = update.message.sent_messages[0]
+
+        self.assertIn("Anime Bot Help", sent_text)
+        self.assertIn("Use `/search <anime name>`", sent_text)
+        self.assertEqual(sent_kwargs["parse_mode"], "Markdown")
+
+    async def test_search_command_without_args_prompts_for_query(self) -> None:
+        """Ensure bare /search asks the user to enter a query.
+
+        Args:
+            None.
+
+        Returns:
+            None.
+        """
+
+        update = FakeUpdate(42)
+        context = FakeContext()
+
+        state = await search_command(update, context)
+
+        sent_text, sent_kwargs, _sent_message = update.message.sent_messages[0]
+
+        self.assertEqual(state, ConversationState.WAITING_SEARCH_QUERY)
+        self.assertIn("Please enter the anime name", sent_text)
+        self.assertEqual(sent_kwargs["parse_mode"], "Markdown")

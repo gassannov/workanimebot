@@ -1262,29 +1262,31 @@ source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
     { name = "anipy-api" },
-    { name = "pytest" },
     { name = "python-dotenv" },
     { name = "python-telegram-bot" },
-    { name = "ruff" },
 ]
 
 [package.dev-dependencies]
 dev = [
     { name = "pyrefly" },
+    { name = "pytest" },
+    { name = "ruff" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "aiohttp", specifier = ">=3.8.0" },
     { name = "anipy-api", editable = "anipy-cli/api" },
-    { name = "pytest", specifier = ">=9.0.2" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "python-telegram-bot", specifier = ">=20.0" },
-    { name = "ruff", specifier = ">=0.15.7" },
 ]
 
 [package.metadata.requires-dev]
-dev = [{ name = "pyrefly", specifier = ">=0.50.1" }]
+dev = [
+    { name = "pyrefly", specifier = ">=0.50.1" },
+    { name = "pytest", specifier = ">=9.0.2" },
+    { name = "ruff", specifier = ">=0.15.7" },
+]
 
 [[package]]
 name = "tomli"
